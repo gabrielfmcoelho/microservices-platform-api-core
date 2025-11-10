@@ -141,10 +141,13 @@ func (r *serviceRepository) RemoveAvailabilityFromOrganization(ctx context.Conte
 // Update atualiza os dados de um service no banco
 func (r *serviceRepository) Update(ctx context.Context, serviceID uint, serviceData *domain.Service) error {
 	// A forma de atualização depende de como você deseja aplicar as mudanças.
-	// Exemplo simples de updates:
+	// Select specific fields to avoid updating gorm.Model fields (ID, CreatedAt, UpdatedAt, DeletedAt)
+	// Use Select to update fields including zero values (false, 0, "")
 	if err := r.db.WithContext(ctx).
 		Model(&domain.Service{}).
 		Where("id = ?", serviceID).
+		Select("marketing_name", "name", "description", "app_url", "icon_url", "screenshot_url",
+			"tag_line", "benefits", "features", "tags", "last_update", "status", "price", "version", "is_marketing").
 		Updates(serviceData).Error; err != nil {
 		return domain.ErrDataBaseInternalError
 	}

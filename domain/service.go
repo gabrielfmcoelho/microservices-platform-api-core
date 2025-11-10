@@ -10,22 +10,22 @@ import (
 
 type Service struct {
 	gorm.Model
-	MarketingName string         `gorm:"size:255;uniqueIndex;not null"`
-	Name          string         `gorm:"size:255;uniqueIndex;not null"`
-	Description   string         `gorm:"size:255;not null"`
-	AppUrl        string         `gorm:"size:255;not null"`
-	IconUrl       string         `gorm:"size:255"`
-	ScreenshotUrl string         `gorm:"size:255"`
-	TagLine       string         `gorm:"size:255"`
-	Benefits      string         `gorm:"size:255"`
-	Features      string         `gorm:"size:255"`
-	Tags          string         `gorm:"size:255"`
-	LastUpdate    string         `gorm:"size:255"`
-	Status        string         `gorm:"size:255"`
-	Price         float64        `gorm:"not null"`
-	Version       string         `gorm:"size:255;not null"`
-	IsMarketing   bool           `gorm:"not null;default:false"`
-	Organization  []Organization `gorm:"many2many:organization_services;"`
+	MarketingName string         `gorm:"size:255;uniqueIndex;not null" json:"marketing_name"`
+	Name          string         `gorm:"size:255;uniqueIndex;not null" json:"name"`
+	Description   string         `gorm:"size:255;not null" json:"description"`
+	AppUrl        string         `gorm:"size:255;not null" json:"app_url"`
+	IconUrl       string         `gorm:"size:255" json:"icon_url"`
+	ScreenshotUrl string         `gorm:"size:255" json:"screenshot_url"`
+	TagLine       string         `gorm:"size:255" json:"tag_line"`
+	Benefits      string         `gorm:"size:255" json:"benefits"`
+	Features      string         `gorm:"size:255" json:"features"`
+	Tags          string         `gorm:"size:255" json:"tags"`
+	LastUpdate    string         `gorm:"size:255" json:"last_update"`
+	Status        string         `gorm:"size:255" json:"status"`
+	Price         float64        `gorm:"not null" json:"price"`
+	Version       string         `gorm:"size:255;not null" json:"version"`
+	IsMarketing   bool           `gorm:"not null;default:false" json:"is_marketing"`
+	Organization  []Organization `gorm:"many2many:organization_services;" json:"-"`
 }
 
 type PublicService struct {
@@ -82,10 +82,12 @@ type Heartbeat struct {
 }
 
 type UsageStatistics struct {
-	TotalUsers     int                   `json:"total_users"`
-	TotalDuration  int                   `json:"total_duration"` // in seconds
-	ServiceStats   []ServiceUsageStats   `json:"service_stats"`
-	RecentActivity []RecentActivityItem  `json:"recent_activity"`
+	TotalUsers           int                   `json:"total_users"`            // Users with activity
+	TotalOrgUsers        int                   `json:"total_org_users"`        // All users in organization (if filtered)
+	TotalDuration        int                   `json:"total_duration"`         // in seconds
+	ServiceStats         []ServiceUsageStats   `json:"service_stats"`
+	RecentActivity       []RecentActivityItem  `json:"recent_activity"`
+	TimeSeriesData       []TimeSeriesDataPoint `json:"time_series_data"`
 }
 
 type ServiceUsageStats struct {
@@ -94,6 +96,16 @@ type ServiceUsageStats struct {
 	TotalUsers   int     `json:"total_users"`
 	TotalSeconds int     `json:"total_seconds"`
 	AvgDuration  float64 `json:"avg_duration"`
+}
+
+type TimeSeriesDataPoint struct {
+	Date     string                       `json:"date"`
+	Services map[string]TimeSeriesService `json:"services"` // key: service_name
+}
+
+type TimeSeriesService struct {
+	TotalSeconds int `json:"total_seconds"`
+	AccessCount  int `json:"access_count"`
 }
 
 type RecentActivityItem struct {

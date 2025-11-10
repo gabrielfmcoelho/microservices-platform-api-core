@@ -15,6 +15,7 @@ import (
 
 type ServiceController struct {
 	ServiceUsecase domain.ServiceUsecase
+	UserUsecase    domain.UserUsecase
 	Env            *bootstrap.Env
 }
 
@@ -99,24 +100,41 @@ func (sc *ServiceController) GetServiceByIdentifier(c *gin.Context) {
 // @Failure 500 {object} domain.ErrorResponse
 // @Router /services/organization [get]
 func (sc *ServiceController) GetServicesByOrganization(c *gin.Context) {
-	// 2) extract OrganizationID from jwt token
-	authHeader := c.Request.Header.Get("Authorization")
-	t := strings.Split(authHeader, " ")
-	authToken := t[1]
-	oID, err := tokenutil.ExtractIDFromToken(authToken, sc.Env.AccessTokenSecret)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Message: err.Error()})
+	// Get user ID from context (set by JWT middleware)
+	userID, exists := c.Get("x-user-id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Message: "User ID not found in context"})
+		return
 	}
 
-	services, err := sc.ServiceUsecase.GetByOrganization(c, uint(oID))
+	// Get the user to access their organization_id
+	userIDStr := fmt.Sprintf("%d", userID)
+	user, err := sc.UserUsecase.GetByIdentifier(c, userIDStr)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{Message: "Failed to get user: " + err.Error()})
+		return
+	}
+
+	fmt.Printf("=== BACKEND: GetServicesByOrganization ===\n")
+	fmt.Printf("User ID: %d, Organization ID: %d\n", user.ID, user.OrganizationID)
+
+	services, err := sc.ServiceUsecase.GetByOrganization(c, user.OrganizationID)
+	if err != nil {
+		fmt.Printf("Error getting services: %v\n", err)
 		switch err {
 		case domain.ErrNotFound:
 			c.JSON(http.StatusNotFound, domain.ErrorResponse{Message: err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, domain.ErrorResponse{Message: err.Error()})
 		}
+		return
 	}
+
+	fmt.Printf("Number of services found: %d\n", len(services))
+	for i, svc := range services {
+		fmt.Printf("Service %d: ID=%d, Name=%s, Status=%s\n", i+1, svc.ID, svc.Name, svc.Status)
+	}
+
 	c.JSON(http.StatusOK, services)
 }
 
@@ -271,6 +289,24 @@ func (sc *ServiceController) UpdateService(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Message: err.Error()})
 		return
 	}
+
+	// Log what was received
+	fmt.Printf("=== BACKEND: Received service update for ID %d ===\n", sID)
+	fmt.Printf("MarketingName: '%s'\n", service.MarketingName)
+	fmt.Printf("Name: '%s'\n", service.Name)
+	fmt.Printf("Description: '%s'\n", service.Description)
+	fmt.Printf("AppUrl: '%s'\n", service.AppUrl)
+	fmt.Printf("IconUrl: '%s'\n", service.IconUrl)
+	fmt.Printf("ScreenshotUrl: '%s'\n", service.ScreenshotUrl)
+	fmt.Printf("TagLine: '%s'\n", service.TagLine)
+	fmt.Printf("Benefits: '%s'\n", service.Benefits)
+	fmt.Printf("Features: '%s'\n", service.Features)
+	fmt.Printf("Tags: '%s'\n", service.Tags)
+	fmt.Printf("LastUpdate: '%s'\n", service.LastUpdate)
+	fmt.Printf("Status: '%s'\n", service.Status)
+	fmt.Printf("Price: %f\n", service.Price)
+	fmt.Printf("Version: '%s'\n", service.Version)
+	fmt.Printf("IsMarketing: %t\n", service.IsMarketing)
 
 	err = sc.ServiceUsecase.Update(c, sID, &service)
 	if err != nil {

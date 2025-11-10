@@ -21,16 +21,39 @@ type AdminController struct {
 }
 
 // @Summary Get usage statistics
-// @Description Get dashboard statistics for admin
+// @Description Get dashboard statistics for admin with optional filters
 // @Tags Admin
 // @ID getUsageStatistics
 // @Security BearerAuth
 // @Produce json
+// @Param organization_id query int false "Organization ID filter"
+// @Param start_date query string false "Start date filter (ISO format)"
+// @Param end_date query string false "End date filter (ISO format)"
 // @Success 200 {object} domain.SuccessResponse{data=domain.UsageStatistics} "Usage statistics"
 // @Failure 500 {object} domain.ErrorResponse "Internal Server Error"
 // @Router /admin/statistics [get]
 func (ac *AdminController) GetUsageStatistics(c *gin.Context) {
-	statistics, err := ac.UserServiceLogUsecase.GetUsageStatistics(c)
+	// Parse optional query parameters
+	var organizationID *uint
+	if orgIDStr := c.Query("organization_id"); orgIDStr != "" {
+		orgID, err := strconv.Atoi(orgIDStr)
+		if err == nil {
+			orgIDUint := uint(orgID)
+			organizationID = &orgIDUint
+		}
+	}
+
+	var startDate *string
+	if start := c.Query("start_date"); start != "" {
+		startDate = &start
+	}
+
+	var endDate *string
+	if end := c.Query("end_date"); end != "" {
+		endDate = &end
+	}
+
+	statistics, err := ac.UserServiceLogUsecase.GetUsageStatistics(c, organizationID, startDate, endDate)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{
 			Message: "Failed to fetch usage statistics: " + err.Error(),

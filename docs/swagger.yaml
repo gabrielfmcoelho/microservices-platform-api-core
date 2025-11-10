@@ -296,6 +296,23 @@ definitions:
       message:
         type: string
     type: object
+  domain.TimeSeriesDataPoint:
+    properties:
+      date:
+        type: string
+      services:
+        additionalProperties:
+          $ref: '#/definitions/domain.TimeSeriesService'
+        description: 'key: service_name'
+        type: object
+    type: object
+  domain.TimeSeriesService:
+    properties:
+      access_count:
+        type: integer
+      total_seconds:
+        type: integer
+    type: object
   domain.UpdateContactIntentStatus:
     properties:
       status:
@@ -317,6 +334,10 @@ definitions:
       service_stats:
         items:
           $ref: '#/definitions/domain.ServiceUsageStats'
+        type: array
+      time_series_data:
+        items:
+          $ref: '#/definitions/domain.TimeSeriesDataPoint'
         type: array
       total_duration:
         description: in seconds
@@ -515,8 +536,21 @@ paths:
       - Admin
   /admin/statistics:
     get:
-      description: Get dashboard statistics for admin
+      description: Get dashboard statistics for admin with optional filters
       operationId: getUsageStatistics
+      parameters:
+      - description: Organization ID filter
+        in: query
+        name: organization_id
+        type: integer
+      - description: Start date filter (ISO format)
+        in: query
+        name: start_date
+        type: string
+      - description: End date filter (ISO format)
+        in: query
+        name: end_date
+        type: string
       produces:
       - application/json
       responses:

@@ -303,7 +303,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get dashboard statistics for admin",
+                "description": "Get dashboard statistics for admin with optional filters",
                 "produces": [
                     "application/json"
                 ],
@@ -312,6 +312,26 @@ const docTemplate = `{
                 ],
                 "summary": "Get usage statistics",
                 "operationId": "getUsageStatistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Organization ID filter",
+                        "name": "organization_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date filter (ISO format)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date filter (ISO format)",
+                        "name": "end_date",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Usage statistics",
@@ -2316,6 +2336,32 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.TimeSeriesDataPoint": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "services": {
+                    "description": "key: service_name",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/domain.TimeSeriesService"
+                    }
+                }
+            }
+        },
+        "domain.TimeSeriesService": {
+            "type": "object",
+            "properties": {
+                "access_count": {
+                    "type": "integer"
+                },
+                "total_seconds": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.UpdateContactIntentStatus": {
             "type": "object",
             "required": [
@@ -2346,6 +2392,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.ServiceUsageStats"
+                    }
+                },
+                "time_series_data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.TimeSeriesDataPoint"
                     }
                 },
                 "total_duration": {

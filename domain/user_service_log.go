@@ -33,12 +33,12 @@ type UserServiceLogRepository interface {
 	GetByServiceID(ctx context.Context, serviceID uint) (UserServiceLog, error)
 	UpdateDuration(ctx context.Context, UserServiceLogID uint, duration int) error
 	Delete(ctx context.Context, UserServiceLogID uint) error
-	GetUsageStatistics(ctx context.Context) (UsageStatistics, error)
+	GetUsageStatistics(ctx context.Context, organizationID *uint, startDate *string, endDate *string) (UsageStatistics, error)
 }
 
 type UserServiceLogUsecase interface {
 	Fetch(ctx context.Context) ([]PublicUserServiceLog, error)
 	GetByIdentifier(ctx context.Context, identifier string) (PublicUserServiceLog, error)
 	Delete(ctx context.Context, UserServiceLogID uint) error
-	GetUsageStatistics(ctx context.Context) (UsageStatistics, error)
+	GetUsageStatistics(ctx context.Context, organizationID *uint, startDate *string, endDate *string) (UsageStatistics, error)
 }

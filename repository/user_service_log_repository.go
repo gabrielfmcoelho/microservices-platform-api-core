@@ -73,10 +73,13 @@ func (r *userServiceLogRepository) GetByServiceID(ctx context.Context, serviceID
 }
 
 // Update updates an existing UserServiceLog, add duration to the existing duration
+// duration parameter is in seconds, but we store as nanoseconds (time.Duration)
 func (r *userServiceLogRepository) UpdateDuration(ctx context.Context, userServiceLogID uint, duration int) error {
+	// Convert seconds to nanoseconds (time.Duration stores nanoseconds)
+	durationNanoseconds := int64(duration) * 1000000000
 	if err := r.db.WithContext(ctx).Model(&domain.UserServiceLog{}).
 		Where("id = ?", userServiceLogID).
-		Update("duration", gorm.Expr("duration + ?", duration)).Error; err != nil {
+		Update("duration", gorm.Expr("duration + ?", durationNanoseconds)).Error; err != nil {
 		return domain.ErrDataBaseInternalError
 	}
 	return nil
@@ -91,27 +94,72 @@ func (r *userServiceLogRepository) Delete(ctx context.Context, userServiceLogID 
 }
 
 // GetUsageStatistics returns aggregated usage statistics for admin dashboard
-func (r *userServiceLogRepository) GetUsageStatistics(ctx context.Context) (domain.UsageStatistics, error) {
+func (r *userServiceLogRepository) GetUsageStatistics(ctx context.Context, organizationID *uint, startDate *string, endDate *string) (domain.UsageStatistics, error) {
 	var stats domain.UsageStatistics
 
-	// Get total unique users
+	// Build base query with optional filters
+	baseQuery := r.db.WithContext(ctx).Model(&domain.UserServiceLog{})
+
+	// Apply organization filter if provided
+	if organizationID != nil {
+		baseQuery = baseQuery.
+			Joins("INNER JOIN users ON users.id = user_service_logs.user_id").
+			Where("users.organization_id = ?", *organizationID)
+	}
+
+	// Apply date range filter if provided
+	if startDate != nil && *startDate != "" {
+		baseQuery = baseQuery.Where("user_service_logs.created_at >= ?", *startDate)
+	}
+	if endDate != nil && *endDate != "" {
+		baseQuery = baseQuery.Where("user_service_logs.created_at <= ?", *endDate)
+	}
+
+	// Get total unique users (with activity)
 	var totalUsers int64
-	if err := r.db.WithContext(ctx).
-		Model(&domain.UserServiceLog{}).
-		Distinct("user_id").
+	if err := baseQuery.
+		Distinct("user_service_logs.user_id").
 		Count(&totalUsers).Error; err != nil {
 		return stats, domain.ErrDataBaseInternalError
 	}
 	stats.TotalUsers = int(totalUsers)
+
+	// Get total organization users (if organization filter is applied)
+	if organizationID != nil {
+		var totalOrgUsers int64
+		if err := r.db.WithContext(ctx).
+			Model(&domain.User{}).
+			Where("organization_id = ?", *organizationID).
+			Count(&totalOrgUsers).Error; err != nil {
+			return stats, domain.ErrDataBaseInternalError
+		}
+		stats.TotalOrgUsers = int(totalOrgUsers)
+	} else {
+		stats.TotalOrgUsers = 0
+	}
 
 	// Get total duration (sum of all durations in nanoseconds, convert to seconds)
 	type TotalDurationResult struct {
 		TotalNanoseconds int64
 	}
 	var durationResult TotalDurationResult
-	if err := r.db.WithContext(ctx).
-		Model(&domain.UserServiceLog{}).
-		Select("COALESCE(SUM(duration), 0) as total_nanoseconds").
+
+	// Rebuild query for duration with same filters
+	durationQuery := r.db.WithContext(ctx).Model(&domain.UserServiceLog{})
+	if organizationID != nil {
+		durationQuery = durationQuery.
+			Joins("INNER JOIN users ON users.id = user_service_logs.user_id").
+			Where("users.organization_id = ?", *organizationID)
+	}
+	if startDate != nil && *startDate != "" {
+		durationQuery = durationQuery.Where("user_service_logs.created_at >= ?", *startDate)
+	}
+	if endDate != nil && *endDate != "" {
+		durationQuery = durationQuery.Where("user_service_logs.created_at <= ?", *endDate)
+	}
+
+	if err := durationQuery.
+		Select("COALESCE(SUM(user_service_logs.duration), 0) as total_nanoseconds").
 		Scan(&durationResult).Error; err != nil {
 		return stats, domain.ErrDataBaseInternalError
 	}
@@ -125,7 +173,9 @@ func (r *userServiceLogRepository) GetUsageStatistics(ctx context.Context) (doma
 		TotalNanoseconds int64
 	}
 	var serviceRows []ServiceStatsRow
-	if err := r.db.WithContext(ctx).
+
+	// Build service stats query with filters
+	serviceStatsQuery := r.db.WithContext(ctx).
 		Table("user_service_logs").
 		Select(`
 			user_service_logs.service_id,
@@ -134,7 +184,21 @@ func (r *userServiceLogRepository) GetUsageStatistics(ctx context.Context) (doma
 			COALESCE(SUM(user_service_logs.duration), 0) as total_nanoseconds
 		`).
 		Joins("LEFT JOIN services ON services.id = user_service_logs.service_id").
-		Where("user_service_logs.deleted_at IS NULL").
+		Where("user_service_logs.deleted_at IS NULL")
+
+	if organizationID != nil {
+		serviceStatsQuery = serviceStatsQuery.
+			Joins("INNER JOIN users ON users.id = user_service_logs.user_id").
+			Where("users.organization_id = ?", *organizationID)
+	}
+	if startDate != nil && *startDate != "" {
+		serviceStatsQuery = serviceStatsQuery.Where("user_service_logs.created_at >= ?", *startDate)
+	}
+	if endDate != nil && *endDate != "" {
+		serviceStatsQuery = serviceStatsQuery.Where("user_service_logs.created_at <= ?", *endDate)
+	}
+
+	if err := serviceStatsQuery.
 		Group("user_service_logs.service_id, services.name").
 		Scan(&serviceRows).Error; err != nil {
 		return stats, domain.ErrDataBaseInternalError
@@ -167,7 +231,9 @@ func (r *userServiceLogRepository) GetUsageStatistics(ctx context.Context) (doma
 		CreatedAt   string
 	}
 	var activityRows []RecentActivityRow
-	if err := r.db.WithContext(ctx).
+
+	// Build recent activity query with filters
+	activityQuery := r.db.WithContext(ctx).
 		Table("user_service_logs").
 		Select(`
 			user_service_logs.id,
@@ -180,7 +246,19 @@ func (r *userServiceLogRepository) GetUsageStatistics(ctx context.Context) (doma
 		`).
 		Joins("LEFT JOIN users ON users.id = user_service_logs.user_id").
 		Joins("LEFT JOIN services ON services.id = user_service_logs.service_id").
-		Where("user_service_logs.deleted_at IS NULL").
+		Where("user_service_logs.deleted_at IS NULL")
+
+	if organizationID != nil {
+		activityQuery = activityQuery.Where("users.organization_id = ?", *organizationID)
+	}
+	if startDate != nil && *startDate != "" {
+		activityQuery = activityQuery.Where("user_service_logs.created_at >= ?", *startDate)
+	}
+	if endDate != nil && *endDate != "" {
+		activityQuery = activityQuery.Where("user_service_logs.created_at <= ?", *endDate)
+	}
+
+	if err := activityQuery.
 		Order("user_service_logs.created_at DESC").
 		Limit(10).
 		Scan(&activityRows).Error; err != nil {
@@ -197,6 +275,67 @@ func (r *userServiceLogRepository) GetUsageStatistics(ctx context.Context) (doma
 			ServiceName: row.ServiceName,
 			Duration:    int(row.Duration),
 			CreatedAt:   row.CreatedAt,
+		})
+	}
+
+	// Get time-series data (usage by day and service)
+	type TimeSeriesRow struct {
+		Date         string
+		ServiceName  string
+		TotalSeconds int64
+		AccessCount  int
+	}
+	var timeSeriesRows []TimeSeriesRow
+
+	// Build time-series query with filters
+	timeSeriesQuery := r.db.WithContext(ctx).
+		Table("user_service_logs").
+		Select(`
+			DATE(user_service_logs.created_at) as date,
+			services.name as service_name,
+			FLOOR(COALESCE(SUM(user_service_logs.duration), 0) / 1000000000) as total_seconds,
+			COUNT(*) as access_count
+		`).
+		Joins("LEFT JOIN services ON services.id = user_service_logs.service_id").
+		Where("user_service_logs.deleted_at IS NULL")
+
+	if organizationID != nil {
+		timeSeriesQuery = timeSeriesQuery.
+			Joins("INNER JOIN users ON users.id = user_service_logs.user_id").
+			Where("users.organization_id = ?", *organizationID)
+	}
+	if startDate != nil && *startDate != "" {
+		timeSeriesQuery = timeSeriesQuery.Where("user_service_logs.created_at >= ?", *startDate)
+	}
+	if endDate != nil && *endDate != "" {
+		timeSeriesQuery = timeSeriesQuery.Where("user_service_logs.created_at <= ?", *endDate)
+	}
+
+	if err := timeSeriesQuery.
+		Group("DATE(user_service_logs.created_at), services.name").
+		Order("date ASC").
+		Scan(&timeSeriesRows).Error; err != nil {
+		return stats, domain.ErrDataBaseInternalError
+	}
+
+	// Transform rows into time-series data structure
+	dateMap := make(map[string]map[string]domain.TimeSeriesService)
+	for _, row := range timeSeriesRows {
+		if _, exists := dateMap[row.Date]; !exists {
+			dateMap[row.Date] = make(map[string]domain.TimeSeriesService)
+		}
+		dateMap[row.Date][row.ServiceName] = domain.TimeSeriesService{
+			TotalSeconds: int(row.TotalSeconds),
+			AccessCount:  row.AccessCount,
+		}
+	}
+
+	// Convert map to array
+	stats.TimeSeriesData = make([]domain.TimeSeriesDataPoint, 0)
+	for date, services := range dateMap {
+		stats.TimeSeriesData = append(stats.TimeSeriesData, domain.TimeSeriesDataPoint{
+			Date:     date,
+			Services: services,
 		})
 	}
 

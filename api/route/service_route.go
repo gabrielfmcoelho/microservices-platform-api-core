@@ -14,8 +14,10 @@ import (
 func NewServiceRouter(env *bootstrap.Env, timeout time.Duration, db *gorm.DB, group *gin.RouterGroup) {
 	sr := repository.NewServiceRepository(db)
 	uslr := repository.NewUserServiceLogRepository(db)
+	ur := repository.NewUserRepository(db)
 	sc := &controller.ServiceController{
 		ServiceUsecase: usecase.NewServiceUsecase(sr, uslr, timeout),
+		UserUsecase:    usecase.NewUserUsecase(ur, timeout),
 		Env:            env,
 	}
 
