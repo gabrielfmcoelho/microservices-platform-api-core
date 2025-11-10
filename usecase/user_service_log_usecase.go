@@ -117,3 +117,19 @@ func (u *userServiceLogUsecase) Delete(ctx context.Context, userServiceLogID uin
 	}
 	return nil
 }
+
+// GetUsageStatistics returns aggregated usage statistics for admin dashboard
+func (u *userServiceLogUsecase) GetUsageStatistics(ctx context.Context) (domain.UsageStatistics, error) {
+	c, cancel := context.WithTimeout(ctx, u.contextTimeout)
+	defer cancel()
+
+	stats, err := u.userServiceLogRepo.GetUsageStatistics(c)
+	if err != nil {
+		if errors.Is(err, domain.ErrDataBaseInternalError) {
+			return domain.UsageStatistics{}, domain.ErrDataBaseInternalError
+		}
+		return domain.UsageStatistics{}, domain.ErrInternalServerError
+	}
+
+	return stats, nil
+}

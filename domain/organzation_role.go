@@ -14,6 +14,11 @@ type OrganizationRole struct {
 	Organizations []Organization `gorm:"foreignKey:RoleID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
+type PublicOrganizationRole struct {
+	ID       uint   `json:"id"`
+	RoleName string `json:"role_name"`
+}
+
 type OrganizationRoleRepository interface {
 	Create(ctx context.Context, organizationRole *OrganizationRole) error
 	Fetch(ctx context.Context) ([]OrganizationRole, error)

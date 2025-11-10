@@ -76,3 +76,29 @@ func SkipTokenValidation(requestToken string) (bool, error) {
 	}
 	return false, nil
 }
+
+func ValidateRefreshToken(refreshToken string, secret string) (uint, error) {
+	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return 0, fmt.Errorf("invalid refresh token")
+	}
+
+	// Extract user_id from claims
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return 0, fmt.Errorf("user_id not found in refresh token")
+	}
+
+	return uint(userID), nil
+}

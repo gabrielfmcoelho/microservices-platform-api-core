@@ -8,12 +8,22 @@ import (
 // Parse Service to PublicService
 func ToPublicService(s domain.Service) domain.PublicService {
 	return domain.PublicService{
-		ID:         s.ID,
-		Name:       s.Name,
-		AppUrl:     s.AppUrl,
-		LastUpdate: s.LastUpdate,
-		Status:     s.Status,
-		Version:    s.Version,
+		ID:            s.ID,
+		MarketingName: s.MarketingName,
+		Name:          s.Name,
+		Description:   s.Description,
+		AppUrl:        s.AppUrl,
+		IconUrl:       s.IconUrl,
+		ScreenshotUrl: s.ScreenshotUrl,
+		TagLine:       s.TagLine,
+		Benefits:      s.Benefits,
+		Features:      s.Features,
+		Tags:          s.Tags,
+		LastUpdate:    s.LastUpdate,
+		Status:        s.Status,
+		Price:         s.Price,
+		Version:       s.Version,
+		IsMarketing:   s.IsMarketing,
 	}
 }
 

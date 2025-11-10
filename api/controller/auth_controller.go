@@ -123,10 +123,32 @@ func (lc *AuthController) ResetPassword(c *gin.Context) {}
 // @ID refreshToken
 // @Accept json
 // @Produce json
-// @Param refreshToken query string true "Refresh token"
+// @Param refreshTokenRequest body domain.RefreshTokenRequest true "Refresh Token Request"
 // @Success 200 {object} domain.RefreshTokenResponse "Access token refreshed successfully"
 // @Failure 400 {object} domain.ErrorResponse "Bad Request - Invalid input"
 // @Failure 401 {object} domain.ErrorResponse "Unauthorized - Invalid refresh token"
 // @Failure 500 {object} domain.ErrorResponse "Internal Server Error"
 // @Router /refresh-token [post]
-func (lc *AuthController) RefreshToken(c *gin.Context) {}
+func (lc *AuthController) RefreshToken(c *gin.Context) {
+	var request domain.RefreshTokenRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{Message: err.Error()})
+		return
+	}
+
+	refreshResponse, err := lc.AuthUsecase.RefreshToken(
+		c,
+		request.RefreshToken,
+		lc.Env.RefreshTokenSecret,
+		lc.Env.AccessTokenSecret,
+		lc.Env.AccessTokenExpiryHour,
+		lc.Env.RefreshTokenExpiryHour,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Message: "Invalid or expired refresh token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, refreshResponse)
+}

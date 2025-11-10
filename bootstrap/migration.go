@@ -14,6 +14,7 @@ func AutoMigrate(db *gorm.DB) {
 		&domain.UserLog{},
 		&domain.UserServiceLog{},
 		&domain.Service{},
+		&domain.ContactIntent{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to auto-migrate models: %v", err)

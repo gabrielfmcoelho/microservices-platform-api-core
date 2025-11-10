@@ -156,6 +156,25 @@ func (su *serviceUsecase) SetAvailabilityToOrganization(ctx context.Context, ser
 	return nil
 }
 
+// RemoveAvailabilityFromOrganization remove o vínculo do service com uma organização
+func (su *serviceUsecase) RemoveAvailabilityFromOrganization(ctx context.Context, serviceID uint, organizationID uint) error {
+	ctx, cancel := context.WithTimeout(ctx, su.contextTimeout)
+	defer cancel()
+
+	err := su.serviceRepository.RemoveAvailabilityFromOrganization(ctx, serviceID, organizationID)
+	if err != nil {
+		if errors.Is(err, domain.ErrDataBaseInternalError) {
+			return domain.ErrDataBaseInternalError
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrNotFound
+		}
+		return domain.ErrInternalServerError
+	}
+
+	return nil
+}
+
 func (su *serviceUsecase) Use(ctx context.Context, userID uint, serviceID uint) (domain.UseService, uint, error) {
 	ctx, cancel := context.WithTimeout(ctx, su.contextTimeout)
 	defer cancel()

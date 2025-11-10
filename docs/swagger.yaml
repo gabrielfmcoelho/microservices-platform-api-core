@@ -1,8 +1,40 @@
 basePath: /
 definitions:
+  domain.CreateContactIntent:
+    properties:
+      company:
+        type: string
+      email:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      service_name:
+        type: string
+    required:
+    - company
+    - email
+    - name
+    - phone
+    type: object
+  domain.CreateOrganization:
+    properties:
+      name:
+        type: string
+      organization_role_id:
+        type: integer
+    required:
+    - name
+    - organization_role_id
+    type: object
   domain.CreateUser:
     properties:
       email:
+        type: string
+      name:
         type: string
       organization_id:
         type: integer
@@ -12,6 +44,7 @@ definitions:
         type: integer
     required:
     - email
+    - name
     - organization_id
     - password
     - role
@@ -95,35 +128,109 @@ definitions:
           type: string
         type: array
     type: object
+  domain.PublicContactIntent:
+    properties:
+      company:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      message:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      service_name:
+        type: string
+      status:
+        type: string
+    type: object
+  domain.PublicOrganization:
+    properties:
+      id:
+        type: integer
+      logo_url:
+        type: string
+      name:
+        type: string
+      nickname:
+        type: string
+    type: object
+  domain.PublicOrganizationRole:
+    properties:
+      id:
+        type: integer
+      role_name:
+        type: string
+    type: object
   domain.PublicService:
     properties:
       app_url:
         type: string
+      benefits:
+        type: string
+      description:
+        type: string
+      features:
+        type: string
+      icon_url:
+        type: string
       id:
         type: integer
+      is_marketing:
+        type: boolean
       last_update:
+        type: string
+      marketing_name:
         type: string
       name:
         type: string
+      price:
+        type: number
+      screenshot_url:
+        type: string
       status:
+        type: string
+      tag_line:
+        type: string
+      tags:
         type: string
       version:
         type: string
     type: object
   domain.PublicUser:
     properties:
-      email:
+      created_at:
         type: string
-      first_name:
+      email:
         type: string
       id:
         type: integer
+      is_archived:
+        type: boolean
+      last_login:
+        type: string
+      name:
+        type: string
       organization_id:
         type: integer
       organization_name:
         type: string
       role_id:
         type: integer
+      role_name:
+        type: string
+    type: object
+  domain.PublicUserRole:
+    properties:
+      id:
+        type: integer
+      role_name:
+        type: string
     type: object
   domain.PublicUserServiceLog:
     properties:
@@ -136,6 +243,30 @@ definitions:
       user_id:
         type: integer
     type: object
+  domain.RecentActivityItem:
+    properties:
+      created_at:
+        type: string
+      duration:
+        type: integer
+      id:
+        type: integer
+      service_id:
+        type: integer
+      service_name:
+        type: string
+      user_email:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  domain.RefreshTokenRequest:
+    properties:
+      refreshToken:
+        type: string
+    required:
+    - refreshToken
+    type: object
   domain.RefreshTokenResponse:
     properties:
       accessToken:
@@ -145,12 +276,53 @@ definitions:
     type: object
   domain.Service:
     type: object
+  domain.ServiceUsageStats:
+    properties:
+      avg_duration:
+        type: number
+      service_id:
+        type: integer
+      service_name:
+        type: string
+      total_seconds:
+        type: integer
+      total_users:
+        type: integer
+    type: object
   domain.SuccessResponse:
     properties:
       data:
         description: Omits Data field if nil
       message:
         type: string
+    type: object
+  domain.UpdateContactIntentStatus:
+    properties:
+      status:
+        enum:
+        - pending
+        - contacted
+        - completed
+        - cancelled
+        type: string
+    required:
+    - status
+    type: object
+  domain.UsageStatistics:
+    properties:
+      recent_activity:
+        items:
+          $ref: '#/definitions/domain.RecentActivityItem'
+        type: array
+      service_stats:
+        items:
+          $ref: '#/definitions/domain.ServiceUsageStats'
+        type: array
+      total_duration:
+        description: in seconds
+        type: integer
+      total_users:
+        type: integer
     type: object
   domain.UseService:
     properties:
@@ -178,6 +350,356 @@ info:
   title: Platform API
   version: 0.1.1
 paths:
+  /admin/contact-intents:
+    get:
+      description: Get all contact intents for admin review
+      operationId: getContactIntents
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of contact intents
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.PublicContactIntent'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all contact intents
+      tags:
+      - Admin
+  /admin/organization-roles:
+    get:
+      description: Get all organization roles for dropdowns
+      operationId: getOrganizationRoles
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of organization roles
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.PublicOrganizationRole'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all organization roles
+      tags:
+      - Admin
+  /admin/organizations/{id}/services:
+    get:
+      description: Get all services linked to an organization
+      operationId: getOrganizationServices
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of organization services
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.HubService'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get organization services
+      tags:
+      - Admin
+  /admin/organizations/{id}/users:
+    get:
+      description: Get all users belonging to an organization
+      operationId: getOrganizationUsers
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of organization users
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.PublicUser'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get organization users
+      tags:
+      - Admin
+  /admin/organizations/{organizationId}/services/{serviceId}:
+    delete:
+      description: Removes the link between a service and an organization
+      operationId: unlinkServiceFromOrganization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: organizationId
+        required: true
+        type: integer
+      - description: Service ID
+        in: path
+        name: serviceId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service unlinked successfully
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Unlink service from organization
+      tags:
+      - Admin
+  /admin/statistics:
+    get:
+      description: Get dashboard statistics for admin
+      operationId: getUsageStatistics
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Usage statistics
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.UsageStatistics'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get usage statistics
+      tags:
+      - Admin
+  /admin/user-roles:
+    get:
+      description: Get all user roles for dropdowns
+      operationId: getUserRoles
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of user roles
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.PublicUserRole'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all user roles
+      tags:
+      - Admin
+  /admin/users/{userId}/{action}:
+    patch:
+      description: Archives or unarchives a user (soft delete)
+      operationId: toggleUserArchiveStatus
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      - description: 'Action: archive or unarchive'
+        in: path
+        name: action
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User status toggled successfully
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Toggle user archive status
+      tags:
+      - Admin
+  /contact-intent:
+    post:
+      consumes:
+      - application/json
+      description: Submit a contact request from the website form (agende demonstração)
+      operationId: createContactIntent
+      parameters:
+      - description: Contact intent object
+        in: body
+        name: contactIntent
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateContactIntent'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Contact intent created successfully
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "400":
+          description: Bad Request - Invalid input
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Create a new contact intent
+      tags:
+      - ContactIntent
+  /contact-intent/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Update the status of a contact intent (admin only)
+      operationId: updateContactIntentStatus
+      parameters:
+      - description: Contact Intent ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Status update object
+        in: body
+        name: status
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateContactIntentStatus'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Status updated successfully
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "400":
+          description: Bad Request - Invalid input
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "404":
+          description: Not Found - Contact intent not found
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update contact intent status
+      tags:
+      - ContactIntent
+  /contact-intents:
+    get:
+      description: Get all contact intents from the database (admin only)
+      operationId: fetchContactIntents
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of contact intents
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.PublicContactIntent'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all contact intents
+      tags:
+      - ContactIntent
   /forgot-password:
     post:
       consumes:
@@ -273,6 +795,126 @@ paths:
       summary: Login Guest
       tags:
       - Auth User
+  /organization:
+    post:
+      consumes:
+      - application/json
+      description: Create a new organization with the input payload
+      operationId: createOrganization
+      parameters:
+      - description: Organization object
+        in: body
+        name: organization
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateOrganization'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.PublicOrganization'
+              type: object
+        "400":
+          description: Bad Request - Invalid input
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Create a new organization
+      tags:
+      - Organization
+  /organization/{id}:
+    delete:
+      description: Delete an organization by ID
+      operationId: deleteOrganization
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Delete organization
+      tags:
+      - Organization
+  /organization/{identifier}:
+    get:
+      description: Get organization by ID or name
+      operationId: getOrganization
+      parameters:
+      - description: Organization ID or name
+        in: path
+        name: identifier
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Organization object
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.PublicOrganization'
+              type: object
+        "404":
+          description: Not Found - Organization not found
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Get organization by ID or name
+      tags:
+      - Organization
+  /organizations:
+    get:
+      description: Get all organizations from the database
+      operationId: fetchOrganizations
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of organizations
+          schema:
+            allOf:
+            - $ref: '#/definitions/domain.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.PublicOrganization'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      summary: Get all organizations
+      tags:
+      - Organization
   /refresh-token:
     post:
       consumes:
@@ -280,11 +922,12 @@ paths:
       description: Refreshes the user's access token
       operationId: refreshToken
       parameters:
-      - description: Refresh token
-        in: query
-        name: refreshToken
+      - description: Refresh Token Request
+        in: body
+        name: refreshTokenRequest
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/domain.RefreshTokenRequest'
       produces:
       - application/json
       responses:

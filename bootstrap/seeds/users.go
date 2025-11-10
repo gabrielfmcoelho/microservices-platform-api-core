@@ -22,24 +22,28 @@ func SeedUsers(db *gorm.DB) error {
 	if count == 0 {
 		users := []domain.CreateUser{
 			{
+				Name:           "Solude Admin",
 				Email:          "contato@solude.tech",
 				Password:       "admin123",
 				OrganizationID: 1,
 				RoleID:         1, // Ex: Role Admin
 			},
 			{
+				Name:           "Gabriel Coelho",
 				Email:          "gabrielcoelho@inovadata.tech",
 				Password:       "123",
 				OrganizationID: 1,
 				RoleID:         1, // Ex: Role User
 			},
 			{
+				Name:           "HSM Contact",
 				Email:          "contato@hsm.com",
 				Password:       "123",
 				OrganizationID: 2,
 				RoleID:         2, // Ex: Role Manager
 			},
 			{
+				Name:           "Guest User",
 				Email:          "guest@solude.tech",
 				Password:       "123",
 				OrganizationID: 4,

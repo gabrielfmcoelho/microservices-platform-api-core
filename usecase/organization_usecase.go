@@ -79,11 +79,14 @@ func (uc *organizationUsecase) GetUsers(ctx context.Context, id uint) ([]domain.
 	for _, u := range users {
 		publicUsers = append(publicUsers, domain.PublicUser{
 			ID:               u.ID,
+			Name:             u.Name,
 			Email:            u.Email,
-			FirstName:        "", // se tiver esse campo no domain.User, pode mapear
 			OrganizationID:   u.OrganizationID,
 			OrganizationName: "", // se quiser, busque org e retorne
 			RoleID:           u.RoleID,
+			RoleName:         "",
+			CreatedAt:        u.CreatedAt.Format("2006-01-02 15:04:05"),
+			LastLogin:        "",
 		})
 	}
 	return publicUsers, nil

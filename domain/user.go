@@ -10,6 +10,7 @@ import (
 
 type User struct {
 	gorm.Model
+	Name           string           `gorm:"size:255"`
 	Email          string           `gorm:"size:255;uniqueIndex;not null"`
 	Password       string           `gorm:"size:255;not null"`
 	OrganizationID uint             `gorm:"not nul;Index"`
@@ -24,6 +25,7 @@ type User struct {
 }
 
 type CreateUser struct {
+	Name           string `json:"name" binding:"required"`
 	Email          string `json:"email" binding:"required,email"`
 	Password       string `json:"password" binding:"required"`
 	OrganizationID uint   `json:"organization_id" binding:"required"`
@@ -32,11 +34,15 @@ type CreateUser struct {
 
 type PublicUser struct {
 	ID               uint   `json:"id"`
+	Name             string `json:"name"`
 	Email            string `json:"email"`
-	FirstName        string `json:"first_name"`
 	OrganizationID   uint   `json:"organization_id"`
 	OrganizationName string `json:"organization_name"`
 	RoleID           uint   `json:"role_id"`
+	RoleName         string `json:"role_name"`
+	CreatedAt        string `json:"created_at"`
+	LastLogin        string `json:"last_login"`
+	IsArchived       bool   `json:"is_archived"`
 }
 
 type UserRepository interface {
@@ -46,6 +52,7 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (User, error)
 	Update(ctx context.Context, userID uint, user *User) error
 	Archive(ctx context.Context, userID uint) error
+	Unarchive(ctx context.Context, userID uint) error
 }
 
 type UserUsecase interface {
@@ -54,6 +61,7 @@ type UserUsecase interface {
 	GetByIdentifier(ctx context.Context, identifier string) (PublicUser, error)
 	Update(ctx context.Context, userID uint, user *User) error
 	Archive(ctx context.Context, userID uint) error
+	Unarchive(ctx context.Context, userID uint) error
 }
 
 // EXEMPLE TIP: To access Bio from a User, use the following:

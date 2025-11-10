@@ -112,6 +112,32 @@ func (r *serviceRepository) SetAvailabilityToOrganization(ctx context.Context, s
 	return nil
 }
 
+// RemoveAvailabilityFromOrganization remove o vínculo do service com uma organização
+func (r *serviceRepository) RemoveAvailabilityFromOrganization(ctx context.Context, serviceID uint, organizationID uint) error {
+	var service domain.Service
+	if err := r.db.WithContext(ctx).First(&service, serviceID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrNotFound
+		}
+		return domain.ErrDataBaseInternalError
+	}
+
+	var organization domain.Organization
+	if err := r.db.WithContext(ctx).First(&organization, organizationID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrNotFound
+		}
+		return domain.ErrDataBaseInternalError
+	}
+
+	// GORM many2many association - Delete removes the association
+	if err := r.db.WithContext(ctx).Model(&service).Association("Organization").Delete(&organization); err != nil {
+		return domain.ErrDataBaseInternalError
+	}
+
+	return nil
+}
+
 // Update atualiza os dados de um service no banco
 func (r *serviceRepository) Update(ctx context.Context, serviceID uint, serviceData *domain.Service) error {
 	// A forma de atualização depende de como você deseja aplicar as mudanças.

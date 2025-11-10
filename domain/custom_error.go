@@ -13,6 +13,7 @@ var (
 	ErrUserPasswordNotMatch  = errors.New("password does not match")
 	ErrUnauthorized          = errors.New("unauthorized by the system")
 	ErrNotFound              = errors.New("not found")
+	ErrBadRequest            = errors.New("bad request")
 	ErrInternalServerError   = errors.New("internal server error")
 	ErrDataBaseInternalError = errors.New("database internal error")
 	ErrInvalidIdentifier     = errors.New("invalid identifier (email or id)")

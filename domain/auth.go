@@ -28,6 +28,7 @@ type AuthUsecase interface {
 	LoginGuestUser(ctx context.Context, accessSecret string, accessExpiry int, refreshSecret string, refreshExpiry int) (loginResponse *LoginResponse, err error)
 	CreateAccessToken(user *User, accessSecret string, accessExpiry int) (accessToken string, err error)
 	CreateRefreshToken(user *User, refreshSecret string, refreshExpiry int) (refreshToken string, err error)
+	RefreshToken(ctx context.Context, refreshToken string, refreshSecret string, accessSecret string, accessExpiry int, refreshExpiry int) (refreshResponse *RefreshTokenResponse, err error)
 
 	ForgotPassword(ctx context.Context, email string) (err error)
 	ResetPassword(ctx context.Context, email string, newPassword string) (err error)

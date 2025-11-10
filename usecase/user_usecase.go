@@ -133,3 +133,18 @@ func (uu *UserUsecase) Archive(c context.Context, userID uint) error {
 
 	return nil
 }
+
+func (uu *UserUsecase) Unarchive(c context.Context, userID uint) error {
+	ctx, cancel := context.WithTimeout(c, uu.contextTimeout)
+	defer cancel()
+
+	err := uu.userRepository.Unarchive(ctx, userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrDataBaseInternalError) {
+			return domain.ErrDataBaseInternalError
+		}
+		return domain.ErrInternalServerError
+	}
+
+	return nil
+}

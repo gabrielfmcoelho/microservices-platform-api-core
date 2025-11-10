@@ -114,6 +114,40 @@ func (au *AuthUsecase) CreateRefreshToken(user *domain.User, refreshSecret strin
 	return tokenutil.CreateRefreshToken(user, refreshSecret, expiry)
 }
 
+func (au *AuthUsecase) RefreshToken(c context.Context, refreshToken string, refreshSecret string, accessSecret string, accessExpiry int, refreshExpiry int) (refreshResponse *domain.RefreshTokenResponse, err error) {
+	ctx, cancel := context.WithTimeout(c, au.contextTimeout)
+	defer cancel()
+
+	// Validate the refresh token and extract user ID
+	userID, err := tokenutil.ValidateRefreshToken(refreshToken, refreshSecret)
+	if err != nil {
+		return nil, errors.New("invalid or expired refresh token")
+	}
+
+	// Get user from database
+	user, err := au.userRepository.GetByID(ctx, userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	// Create new access token
+	newAccessToken, err := au.CreateAccessToken(&user, accessSecret, accessExpiry)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create new refresh token
+	newRefreshToken, err := au.CreateRefreshToken(&user, refreshSecret, refreshExpiry)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.RefreshTokenResponse{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshToken,
+	}, nil
+}
+
 func (au *AuthUsecase) ForgotPassword(c context.Context, email string) (err error) {
 	//ctx, cancel := context.WithTimeout(c, au.contextTimeout)
 	//defer cancel()

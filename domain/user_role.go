@@ -15,6 +15,11 @@ type UserRole struct {
 	Users    []User `gorm:"foreignKey:RoleID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
+type PublicUserRole struct {
+	ID       uint   `json:"id"`
+	RoleName string `json:"role_name"`
+}
+
 type UserRoleRepository interface {
 	Create(ctx context.Context, userRole *UserRole) error
 	Fetch(ctx context.Context) ([]UserRole, error)

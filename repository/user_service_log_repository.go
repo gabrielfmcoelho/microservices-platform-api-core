@@ -89,3 +89,116 @@ func (r *userServiceLogRepository) Delete(ctx context.Context, userServiceLogID 
 	}
 	return nil
 }
+
+// GetUsageStatistics returns aggregated usage statistics for admin dashboard
+func (r *userServiceLogRepository) GetUsageStatistics(ctx context.Context) (domain.UsageStatistics, error) {
+	var stats domain.UsageStatistics
+
+	// Get total unique users
+	var totalUsers int64
+	if err := r.db.WithContext(ctx).
+		Model(&domain.UserServiceLog{}).
+		Distinct("user_id").
+		Count(&totalUsers).Error; err != nil {
+		return stats, domain.ErrDataBaseInternalError
+	}
+	stats.TotalUsers = int(totalUsers)
+
+	// Get total duration (sum of all durations in nanoseconds, convert to seconds)
+	type TotalDurationResult struct {
+		TotalNanoseconds int64
+	}
+	var durationResult TotalDurationResult
+	if err := r.db.WithContext(ctx).
+		Model(&domain.UserServiceLog{}).
+		Select("COALESCE(SUM(duration), 0) as total_nanoseconds").
+		Scan(&durationResult).Error; err != nil {
+		return stats, domain.ErrDataBaseInternalError
+	}
+	stats.TotalDuration = int(durationResult.TotalNanoseconds / 1000000000) // Convert nanoseconds to seconds
+
+	// Get per-service statistics
+	type ServiceStatsRow struct {
+		ServiceID        uint
+		ServiceName      string
+		TotalUsers       int
+		TotalNanoseconds int64
+	}
+	var serviceRows []ServiceStatsRow
+	if err := r.db.WithContext(ctx).
+		Table("user_service_logs").
+		Select(`
+			user_service_logs.service_id,
+			services.name as service_name,
+			COUNT(DISTINCT user_service_logs.user_id) as total_users,
+			COALESCE(SUM(user_service_logs.duration), 0) as total_nanoseconds
+		`).
+		Joins("LEFT JOIN services ON services.id = user_service_logs.service_id").
+		Where("user_service_logs.deleted_at IS NULL").
+		Group("user_service_logs.service_id, services.name").
+		Scan(&serviceRows).Error; err != nil {
+		return stats, domain.ErrDataBaseInternalError
+	}
+
+	stats.ServiceStats = make([]domain.ServiceUsageStats, 0)
+	for _, row := range serviceRows {
+		totalSeconds := int(row.TotalNanoseconds / 1000000000) // Convert nanoseconds to seconds
+		avgDuration := 0.0
+		if row.TotalUsers > 0 {
+			avgDuration = float64(totalSeconds) / float64(row.TotalUsers)
+		}
+		stats.ServiceStats = append(stats.ServiceStats, domain.ServiceUsageStats{
+			ServiceID:    row.ServiceID,
+			ServiceName:  row.ServiceName,
+			TotalUsers:   row.TotalUsers,
+			TotalSeconds: totalSeconds,
+			AvgDuration:  avgDuration,
+		})
+	}
+
+	// Get recent activity (last 10 entries)
+	type RecentActivityRow struct {
+		ID          uint
+		UserID      uint
+		UserEmail   string
+		ServiceID   uint
+		ServiceName string
+		Duration    int64
+		CreatedAt   string
+	}
+	var activityRows []RecentActivityRow
+	if err := r.db.WithContext(ctx).
+		Table("user_service_logs").
+		Select(`
+			user_service_logs.id,
+			user_service_logs.user_id,
+			users.email as user_email,
+			user_service_logs.service_id,
+			services.name as service_name,
+			user_service_logs.duration / 1000000000 as duration,
+			user_service_logs.created_at
+		`).
+		Joins("LEFT JOIN users ON users.id = user_service_logs.user_id").
+		Joins("LEFT JOIN services ON services.id = user_service_logs.service_id").
+		Where("user_service_logs.deleted_at IS NULL").
+		Order("user_service_logs.created_at DESC").
+		Limit(10).
+		Scan(&activityRows).Error; err != nil {
+		return stats, domain.ErrDataBaseInternalError
+	}
+
+	stats.RecentActivity = make([]domain.RecentActivityItem, 0)
+	for _, row := range activityRows {
+		stats.RecentActivity = append(stats.RecentActivity, domain.RecentActivityItem{
+			ID:          row.ID,
+			UserID:      row.UserID,
+			UserEmail:   row.UserEmail,
+			ServiceID:   row.ServiceID,
+			ServiceName: row.ServiceName,
+			Duration:    int(row.Duration),
+			CreatedAt:   row.CreatedAt,
+		})
+	}
+
+	return stats, nil
+}

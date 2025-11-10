@@ -32,7 +32,14 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 // Fetch retorna todos os usuários do banco de dados
 func (r *userRepository) Fetch(ctx context.Context) ([]domain.User, error) {
 	var users []domain.User
-	if err := r.db.WithContext(ctx).Find(&users).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Unscoped().
+		Preload("Role").
+		Preload("Organization").
+		Preload("Logs", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at DESC").Limit(1)
+		}).
+		Find(&users).Error; err != nil {
 		return nil, domain.ErrDataBaseInternalError
 	}
 	return users, nil
@@ -88,8 +95,17 @@ func (r *userRepository) Archive(ctx context.Context, userID uint) error {
 	if err != nil {
 		return err
 	}
-	user.DeletedAt = gorm.DeletedAt{Time: time.Now()}
+	user.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 	if err := r.db.WithContext(ctx).Save(user).Error; err != nil {
+		return domain.ErrDataBaseInternalError
+	}
+	return nil
+}
+
+// Unarchive remove o soft delete para reativar um usuário
+func (r *userRepository) Unarchive(ctx context.Context, userID uint) error {
+	// Remove soft delete to enable user again
+	if err := r.db.WithContext(ctx).Unscoped().Model(&domain.User{}).Where("id = ?", userID).Update("deleted_at", nil).Error; err != nil {
 		return domain.ErrDataBaseInternalError
 	}
 	return nil
